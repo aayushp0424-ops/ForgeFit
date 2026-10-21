@@ -1,21 +1,31 @@
-# Apple Health integration — native implementation plan
+# ForgeFit native Apple Health connection (iOS-first)
 
-**Status: NOT CONNECTED.** A browser-installed Next.js PWA cannot directly read Apple Health data. This folder contains reference native Swift logic only.
+## Status
 
-## What is usable now
+- **Web/PWA on Vercel:** Apple Health cannot connect directly. The Activity screen correctly explains that limitation; manual steps and CSV imports keep working.
+- **Native iOS reference implementation:** `native/ios/ForgeFitNativeApp.swift` supplies a SwiftUI/WKWebView wrapper and a restricted JavaScript/HealthKit bridge. `HealthKitStepsReader.swift` reads read-only daily step aggregates. The TypeScript bridge is `lib/healthBridge.ts`.
+- **Not yet compiled or installed:** This repository does not contain a signed Xcode project. No automatic background sync. A native iOS build on macOS is needed to activate the Connect button.
 
-- Manual step entry, goals and estimated walking calorie credits.
-- Local import of a CSV with `date,steps` (for example `2026-10-20,8250`). This CSV must be obtained outside ForgeFit; Apple Health's built-in export is not directly in this CSV format. Import replaces matching days only after confirmation.
-- The Home calorie balance uses the imported or manually entered step count, not both (prevents adding the same steps twice).
+## To build the iPhone app
 
-## Future native iOS release
+1. Use Xcode on a Mac (or an appropriate Mac build service) to create an iOS App project named ForgeFit, SwiftUI interface, Swift language. Choose a unique bundle identifier and configure signing.
+2. Copy `native/ios/ForgeFitNativeApp.swift` and `native/ios/HealthKitStepsReader.swift` into the app target, replacing the Xcode-generated `@main` app entry so there is only one.
+3. Add **HealthKit** under Signing & Capabilities. Add the `NSHealthShareUsageDescription` Info property, e.g. “ForgeFit reads your daily steps to track activity and estimate walking calories.” Request *read* permission for step count only; no write permission.
+4. Set `WKAppBoundDomains` in Info as an array containing `forgefit-8tc9.vercel.app`. Keep the Swift `allowedHost` the same as the hosted ForgeFit address. Do not point the privileged bridge at an arbitrary website.
+5. Build and run on a physical iPhone. HealthKit is not guaranteed available in iOS simulator. Open Activity → Phone health connections → Connect Apple Health, authorize read access, and sync up to seven days.
+6. Verify duplicate sources, denial, device time zone, multiple devices, 0 steps, privacy, and recalculation of net calories. Test the app in the background and after returning; background syncing is not implemented.
 
-1. Create a native iOS target using Xcode on macOS (or a trusted Mac-based build service). Choose a maintained wrapper approach if combining the web UI with native code.
-2. Add HealthKit entitlement, `NSHealthShareUsageDescription`, and privacy policy. Do not request writing rights unless explicitly adding a write feature.
-3. Use `native/ios/HealthKitStepsReader.swift` as reference to request permission and read a daily aggregate. HealthKit may expose only limited/no data depending on consent.
-4. Expose a small, authenticated native-to-web bridge `getDailySteps(date)` and `requestHealthAccess()` with date and count only. Never expose raw HealthKit samples to browser JavaScript unless the UI needs them.
-5. **Replace**, never add, the daily stored step total during sync. Keep a `healthkit` source label and support revoking access, and reconcile manual entries with deliberate conflict resolution.
-6. Test iPhone permissions, multiple step devices, timezone/day changes, revocations, offline behavior, duplicate prevention, and calorie credits without double-counting.
-7. Only then label the feature **Automatic Apple Health Sync**.
+## Privacy & accounting
 
-Do not upload Apple Health information to a server unless users explicitly consent and a secure, private, documented data-handling design exists.
+- Apple may hide read authorization state: completing the permission prompt is **not proof** of access. Zero results may mean no data, denial, or actually zero steps. ForgeFit does not replace existing counts with zero responses.
+- The app imports **daily totals only** and saves them to local browser storage in the native WKWebView. It does not upload raw samples or steps to ForgeFit servers. The app does not yet have cloud accounts or cross-device sync.
+- Health steps **replace** the existing step total for the same day (source `healthkit`), avoiding double counting. Manual and CSV options remain available.
+- “Stop syncing” stops requests within ForgeFit; system access must be revoked in iPhone Settings → Privacy & Security → Health.
+- WKWebView loads only `https://forgefit-8tc9.vercel.app` inside the privileged container. External links open outside it. Maintain dependency audits, Content Security Policy, and code reviews; malicious JavaScript on the allowed origin could access the native bridge while it is granted HealthKit access.
+- Walking calorie estimates are approximations, not measured calories. Don’t credit both estimated walking and measured exercise calories for the same activity.
+
+## Android
+
+Android devices use **Health Connect**, not HealthKit, and require a separate native Android integration requesting `android.permission.health.READ_STEPS`. ForgeFit's current Next.js PWA cannot read it. No Android bridge is included yet.
+
+References: https://developer.apple.com/documentation/HealthKit/authorizing-access-to-health-data and https://developer.apple.com/documentation/webkit/wkscriptmessagehandler

@@ -164,3 +164,13 @@
 .ff-file-label input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
 @media(max-width:900px){.ff-analytics{grid-template-columns:repeat(3,minmax(0,1fr))}.ff-micro-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.ff-analytics{grid-template-columns:repeat(2,minmax(0,1fr))}.ff-micro-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ff-quick{padding:10px}.ff-tabs button{padding:7px 8px}}
+
+/* iPhone HealthKit integration status — native capability only */
+.ff-health-connections { margin-top: 18px; margin-bottom: 16px; padding: 17px; border-radius: 16px; background: var(--surface, #16252d); border: 1px solid var(--line, #34444d); }
+.ff-health-connections > .ff-between { gap: 10px; flex-wrap: wrap; }
+.ff-health-connections > .ff-between > strong, .ff-health-provider > strong, .ff-health-provider > div > strong { display: flex; align-items: center; gap: 8px; }
+.ff-health-provider { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line, #34444d); }
+.ff-health-provider .tiny-muted { margin-top: 8px; line-height: 1.55; }
+.ff-health-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.ff-health-explainer { max-width: 58ch; }
+.ff-health-message { margin-top: 12px; border-left: 3px solid var(--teal, #29d3b2); padding: 10px 12px; background: rgba(41,211,178,.08); border-radius: 4px; line-height: 1.5; }

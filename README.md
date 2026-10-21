@@ -31,6 +31,10 @@ An offline-first, mobile-friendly **Next.js** food/fitness tracking prototype wi
 4. Repeat, then scroll to the recipe builder and click **Save measured recipe**.
 5. Select **Log serving** to add one of its servings to the currently selected meal and diary date.
 
+## Phone health connections (new)
+
+Activity → Phone health connections now shows native bridge availability. On iPhone, the native SwiftUI wrapper in `native/ios/` can request HealthKit read permission and import the last 7 daily step counts; web/PWA versions **cannot** request HealthKit access. A signed native iOS app needs to be built with Xcode first, as described in `docs/IOS_HEALTHKIT.md`. Android Health Connect requires an Android-native implementation and remains unavailable. No data is sent to a server.
+
 ## Daily health data and native iPhone app
 
 A PWA can be installed from Safari, but **cannot access native HealthKit**. The `native/ios` directory contains an illustrative Swift reader, not an integrated, installable iOS app. See `docs/IOS_HEALTHKIT.md`. The CSV importer works entirely in the browser and does not read Apple Health's native export format.

@@ -5,10 +5,11 @@ import {
   Activity, ArrowUpRight, CalendarDays, Check, Camera, Sparkles,
   ChevronLeft, ChevronRight, CircleHelp, Dumbbell, Flame, Home,
   Info, Leaf, Plus, Scale, Search, Settings, ShieldCheck,
-  Target, Trash2, TrendingUp, UtensilsCrossed, X, Droplets, Footprints, Heart, BookOpen, Copy, Upload, BarChart3,
+  Target, Trash2, TrendingUp, UtensilsCrossed, X, Droplets, Footprints, Heart, BookOpen, Copy, Upload, BarChart3, HeartPulse, Smartphone, RefreshCw,
   type LucideIcon,
 } from "lucide-react";
 import BarcodeScanner from "./components/BarcodeScanner";
+import { isHealthBridgeAvailable, requestAppleHealthAccess, fetchAppleHealthSteps } from "../lib/healthBridge";
 import { STARTER_FOODS, NUTRIENTS, nutrientKeys, foodUnits, amountsFor, scaledNutrients, sumNutrients, type Nutrients, type CatalogFood } from "../lib/foods";
 
 type Screen = "home" | "food" | "train" | "activity" | "coach" | "progress" | "settings";
@@ -22,11 +23,11 @@ type WaterLog = { id: string; date: string; amountOz: number; loggedAt: number }
 type ActivityPrefs = { waterOz: number; stepGoal: number; bodyWeightLb: number; creditStepCalories: boolean };
 type RecipeIngredient = FoodItem & { grams: number };
 type SavedRecipe = { id: string; name: string; yieldServings: number; ingredients: RecipeIngredient[]; createdAt: number };
-type Store = { foods: FoodLog[]; workouts: WorkoutLog[]; weights: WeightLog[]; water: WaterLog[]; steps: Record<string, number>; stepSources: Record<string, "manual" | "csv" | "healthkit">; goals: Goals; activityPrefs: ActivityPrefs; favoriteIds: string[]; favoriteSnapshots: FoodLog[]; recipes: SavedRecipe[] };
+type Store = { foods: FoodLog[]; workouts: WorkoutLog[]; weights: WeightLog[]; water: WaterLog[]; steps: Record<string, number>; stepSources: Record<string, "manual" | "csv" | "healthkit">; goals: Goals; activityPrefs: ActivityPrefs; healthSync: { enabled: boolean; lastSync?: string }; favoriteIds: string[]; favoriteSnapshots: FoodLog[]; recipes: SavedRecipe[] };
 
 const DEFAULT_GOALS: Goals = { calories: 2300, protein: 160, carbs: 250, fat: 75 };
 const DEFAULT_ACTIVITY_PREFS: ActivityPrefs = { waterOz: 80, stepGoal: 8000, bodyWeightLb: 0, creditStepCalories: true };
-const INITIAL_STORE: Store = { foods: [], workouts: [], weights: [], water: [], steps: {}, stepSources: {}, goals: DEFAULT_GOALS, activityPrefs: DEFAULT_ACTIVITY_PREFS, favoriteIds: [], favoriteSnapshots: [], recipes: [] };
+const INITIAL_STORE: Store = { foods: [], workouts: [], weights: [], water: [], steps: {}, stepSources: {}, goals: DEFAULT_GOALS, activityPrefs: DEFAULT_ACTIVITY_PREFS, healthSync: { enabled: false }, favoriteIds: [], favoriteSnapshots: [], recipes: [] };
 const MEALS: Meal[] = ["Breakfast", "Lunch", "Dinner", "Snacks"];
 
 const NAV: { id: Screen; label: string; icon: LucideIcon }[] = [
@@ -78,6 +79,7 @@ function loadStore(): Store {
       recipes: Array.isArray(obj.recipes) ? obj.recipes.filter((r): r is SavedRecipe => Boolean(r && typeof r.name === "string" && Array.isArray(r.ingredients) && r.yieldServings > 0)) : [],
       goals: { ...DEFAULT_GOALS, ...obj.goals },
       activityPrefs: { ...DEFAULT_ACTIVITY_PREFS, ...obj.activityPrefs },
+      healthSync: { enabled: obj.healthSync?.enabled === true, lastSync: typeof obj.healthSync?.lastSync === "string" ? obj.healthSync.lastSync : undefined },
     };
   } catch { return INITIAL_STORE; }
 }
@@ -147,6 +149,9 @@ export default function ForgeFit() {
   const [activityInput, setActivityInput] = useState(DEFAULT_ACTIVITY_PREFS);
   const [waterInput, setWaterInput] = useState("16.9");
   const [stepsInput, setStepsInput] = useState("");
+  const [healthAvailable, setHealthAvailable] = useState(false);
+  const [healthBusy, setHealthBusy] = useState(false);
+  const [healthNotice, setHealthNotice] = useState("");
   const [toast, setToast] = useState("");
   const today = dateKey();
 
@@ -155,6 +160,7 @@ export default function ForgeFit() {
     setData(saved);
     setGoalsInput(saved.goals);
     setActivityInput(saved.activityPrefs);
+    setHealthAvailable(isHealthBridgeAvailable());
     const resolveHash = () => {
       const fragment = window.location.hash.slice(1);
       setScreen(NAV.some((item) => item.id === fragment) ? fragment as Screen : "home");
@@ -307,6 +313,48 @@ export default function ForgeFit() {
     addWater(amount);
   };
   const deleteWater = (id: string) => setData(d => ({ ...d, water: d.water.filter(w => w.id !== id) }));
+  // The native iOS container handles HealthKit. Safari/PWA never has this bridge.
+  // Keep one step total per date so estimates and trends cannot double-count data sources.
+  const syncAppleHealth = async (requestPermission: boolean) => {
+    if (!isHealthBridgeAvailable()) { setHealthNotice('Apple Health requires the ForgeFit native iPhone app. Safari cannot access HealthKit.'); return; }
+    if (healthBusy) return;
+    setHealthBusy(true);
+    setHealthNotice('');
+    try {
+      if (requestPermission) {
+        await requestAppleHealthAccess();
+        // HealthKit deliberately does not reveal whether read access was granted.
+      }
+      const dates = Array.from({ length: 7 }, (_, i) => {
+        const day = new Date(); day.setHours(12, 0, 0, 0); day.setDate(day.getDate() - i);
+        return dateKey(day);
+      });
+      const imported: Record<string, number> = {};
+      for (const day of dates) {
+        const steps = await fetchAppleHealthSteps(day);
+        if (steps > 0) imported[day] = steps;
+      }
+      const count = Object.keys(imported).length;
+      // A zero result can mean permission denied, no data, or genuinely zero steps.
+      // Never overwrite an existing step count with that ambiguous zero.
+      setData(d => ({
+        ...d,
+        steps: { ...d.steps, ...imported },
+        stepSources: { ...d.stepSources, ...Object.fromEntries(Object.keys(imported).map(day => [day, 'healthkit' as const])) },
+        healthSync: { enabled: true, lastSync: count > 0 ? new Date().toISOString() : d.healthSync.lastSync }
+      }));
+      if (imported[dateKey()] !== undefined) setStepsInput(String(imported[dateKey()]));
+      setHealthNotice(count > 0
+        ? `Synced ${count} days from Apple Health. Daily totals replace previous entries, never add to them.`
+        : 'Apple Health returned no step data. Check access in iPhone Health settings, or try again after walking. Existing steps were kept.');
+    } catch (error) {
+      setHealthNotice(error instanceof Error ? error.message : 'Could not read Apple Health right now.');
+    } finally { setHealthBusy(false); }
+  };
+  const disconnectHealth = () => {
+    setData(d => ({ ...d, healthSync: { enabled: false } }));
+    setHealthNotice('ForgeFit stopped syncing on this device. To revoke system-level access, use iPhone Settings → Privacy & Security → Health. Previously imported totals remain until you edit or delete them.');
+  };
   const setTodaySteps = (e: FormEvent) => {
     e.preventDefault();
     const count = Number(stepsInput);
@@ -546,11 +594,24 @@ export default function ForgeFit() {
               </div>
               <div className="panel activity-panel">
                 <div className="panel-heading"><div><span className="panel-overline">KEEP WALKING</span><h2>Step tracker</h2></div><span className="icon-square orange-bg"><Footprints size={19}/></span></div>
-                <div className="activity-metric"><strong>{n(todaySteps)} <small>steps</small></strong><span>Today's manually entered total</span></div>
+                <div className="activity-metric"><strong>{n(todaySteps)} <small>steps</small></strong><span>Today's total · {data.stepSources[today] === 'healthkit' ? 'Apple Health' : data.stepSources[today] === 'csv' ? 'CSV import' : data.stepSources[today] === 'manual' ? 'Manual entry' : 'No source yet'}</span></div>
                 <div className="activity-progress orange-progress"><div style={{width: `${Math.min(100, todaySteps / data.activityPrefs.stepGoal * 100)}%`}}/></div>
                 <div className="activity-goal-row"><span>{n(Math.round(todaySteps / data.activityPrefs.stepGoal * 100))}% of daily goal</span><strong>{n(data.activityPrefs.stepGoal)} step goal</strong></div>
                 <div className="step-burn"><div className="step-burn-icon"><Flame size={20}/></div><div><span>Estimated extra walking burn</span><strong>{canEstimateSteps ? `~${n(stepCalories)} kcal` : "Add body weight to estimate"}</strong><small>{data.activityPrefs.creditStepCalories ? "Applied to your net calorie balance" : "Not applied to your calorie balance"}</small></div></div>
-                <div className="ff-health-import"><div className="ff-between"><strong><Upload size={16}/> Import step totals from CSV</strong><Pill>Manual import</Pill></div><p className="tiny-muted">Optional CSV with columns <code>date,steps</code> (example: <code>2026-10-20,8250</code>). This can import daily totals exported from another app. It does not connect to Apple Health or sync automatically.</p><label className="button button-outline ff-file-label">Choose CSV<input type="file" accept=".csv,text/csv" onChange={e=>{void importStepsCsv(e.target.files?.[0]);e.target.value='';}}/></label><p className="tiny-muted">Apple Health automatic sync requires a native iPhone app and permission. Source today: {data.stepSources[today]||'manual / not recorded'}.</p></div>
+                                 <div className="ff-health-connections" aria-label="Phone health connections">
+                   <div className="ff-between"><strong><HeartPulse size={18}/> Phone health connections</strong><Pill kind={healthAvailable ? 'teal' : 'orange'}>{healthAvailable ? 'Native bridge available' : 'Native app required'}</Pill></div>
+                   <div className="ff-health-provider"><div><strong><Smartphone size={16}/> Apple Health · iPhone</strong><p className="tiny-muted">Read daily step totals only, with your permission. No health data is sent to a ForgeFit server. Your calorie balance recalculates from the updated step total.</p></div>
+                     {healthAvailable ? <div className="ff-health-actions">
+                       <button className="button button-primary" type="button" disabled={healthBusy} onClick={()=>{void syncAppleHealth(true);}}><Heart size={16}/>{healthBusy?'Syncing…':data.healthSync.enabled?'Request access again':'Connect Apple Health'}</button>
+                       {data.healthSync.enabled && <button className="button button-outline" type="button" disabled={healthBusy} onClick={()=>{void syncAppleHealth(false);}}><RefreshCw size={16}/> Sync last 7 days</button>}
+                       {data.healthSync.enabled && <button className="button button-outline" type="button" disabled={healthBusy} onClick={disconnectHealth}>Stop syncing</button>}
+                     </div> : <p className="tiny-muted ff-health-explainer">You're using ForgeFit in a web browser or Home Screen web app. Apple only allows HealthKit inside a native iOS app. The native integration is included in the source, but it must be built and installed on an iPhone using Xcode before this control can connect.</p>}
+                   </div>
+                   <div className="ff-health-provider"><strong><Smartphone size={16}/> Health Connect · Android</strong><p className="tiny-muted">Android Health Connect access will require a separate native Android integration. It is not active in this web release.</p></div>
+                   {data.healthSync.lastSync && <p className="tiny-muted">Last successful Apple Health import: {new Date(data.healthSync.lastSync).toLocaleString()}.</p>}
+                   {healthNotice && <p className="ff-health-message" role="status">{healthNotice}</p>}
+                 </div>
+<div className="ff-health-import"><div className="ff-between"><strong><Upload size={16}/> Import step totals from CSV</strong><Pill>Manual import</Pill></div><p className="tiny-muted">Optional CSV with columns <code>date,steps</code> (example: <code>2026-10-20,8250</code>). This can import daily totals exported from another app. It does not connect to Apple Health or sync automatically.</p><label className="button button-outline ff-file-label">Choose CSV<input type="file" accept=".csv,text/csv" onChange={e=>{void importStepsCsv(e.target.files?.[0]);e.target.value='';}}/></label><p className="tiny-muted">Apple Health automatic sync requires a native iPhone app and permission. Source today: {data.stepSources[today]||'manual / not recorded'}.</p></div>
                 <div className="step-edit-grid">
                   <form onSubmit={setTodaySteps} className="step-edit-card"><h3>Steps completed today</h3><p>The current number on your watch or phone. This replaces the day's total, NOT your goal.</p><label className="field"><span>Today's completed steps</span><input required type="number" min="0" max="100000" step="1" placeholder={String(todaySteps)} value={stepsInput} onChange={e=>setStepsInput(e.target.value)}/></label><button type="submit" className="button button-primary full"><Check size={17}/> Save steps walked</button></form>
                   <form onSubmit={setStepGoal} className="step-edit-card"><h3>Daily step GOAL</h3><p>Your target. Saving it does not count as completed steps.</p><label className="field"><span>Goal steps per day</span><input required type="number" min="1" max="100000" step="1" value={activityInput.stepGoal} onChange={e=>setActivityInput(v=>({...v,stepGoal:Number(e.target.value)}))}/></label><button type="submit" className="button button-outline full"><Target size={17}/> Save step goal</button></form>
@@ -588,7 +649,7 @@ export default function ForgeFit() {
           {screen === "settings" && <>
             <section className="page-heading"><div><div className="eyebrow">MAKE IT YOURS</div><h1>Your <span>settings.</span></h1><p>Personalize nutrition and daily activity goals.</p></div><Pill kind="teal"><ShieldCheck size={13}/> Local mode</Pill></section>
             <div className="two-col-layout"><section className="panel"><SectionHeader title="Daily nutrition goals" description="These targets are placeholders until you choose your own."/><form onSubmit={saveGoals}><div className="settings-fields">{(["calories", "protein", "carbs", "fat"] as const).map(key => <label className="field" key={key}><span>{key.charAt(0).toUpperCase() + key.slice(1)} ({key === "calories" ? "kcal" : "g"})</span><input required type="number" min="1" max="100000" step="1" value={goalsInput[key]} onChange={e => setGoalsInput(g => ({ ...g, [key]: Number(e.target.value) }))}/></label>)}</div><button type="submit" className="button button-primary"><Check size={17}/> Save goals</button></form></section>
-            <section className="panel"><SectionHeader title="Your data" description="Important information about this starter app."/><div className="settings-note"><ShieldCheck size={20}/><div><strong>Saved on this browser only</strong><p>Entries are stored in localStorage. There is no login, cloud backup, or cross-device sync in v0.4. Clearing this browser's data will remove your entries.</p></div></div><div className="settings-note"><CircleHelp size={20}/><div><strong>Health sync status</strong><p>Manual step entry and CSV import are available. Automatic Apple Health sync requires a native iOS bridge, HealthKit permission, and an iOS build; the browser cannot access HealthKit directly.</p></div></div><button className="button button-danger" onClick={clearData}><Trash2 size={16}/> Delete all local data</button></section></div>
+            <section className="panel"><SectionHeader title="Your data" description="Important information about this starter app."/><div className="settings-note"><ShieldCheck size={20}/><div><strong>Saved on this browser only</strong><p>Entries are stored in localStorage. There is no login, cloud backup, or cross-device sync in v0.4. Clearing this browser's data will remove your entries.</p></div></div><div className="settings-note"><CircleHelp size={20}/><div><strong>Health sync status</strong><p>Manual and CSV step entry work in the browser. The Apple Health connection panel is under Activity; direct step sync requires the native iPhone wrapper and your permission. Android Health Connect needs its own native integration.</p></div></div><button className="button button-danger" onClick={clearData}><Trash2 size={16}/> Delete all local data</button></section></div>
             <section className="panel settings-activity-panel"><SectionHeader title="Water, steps & calorie credits" description="Choose daily goals and the weight used for walking estimates."/><form onSubmit={saveActivityPrefs}><div className="settings-fields"><label className="field"><span>Water goal (fl oz per day)</span><input required type="number" min="1" max="300" step="0.1" value={activityInput.waterOz} onChange={e => setActivityInput(v => ({...v, waterOz: Number(e.target.value)}))}/></label><label className="field"><span>Step goal (steps per day)</span><input required type="number" min="1" max="100000" step="1" value={activityInput.stepGoal} onChange={e => setActivityInput(v => ({...v, stepGoal: Number(e.target.value)}))}/></label><label className="field"><span>Walking estimate weight (lb, optional)</span><input type="number" min="0" max="1500" step="0.1" value={activityInput.bodyWeightLb || ""} placeholder="Enter your body weight" onChange={e => setActivityInput(v => ({...v, bodyWeightLb: Number(e.target.value)}))}/><small className="tiny-muted">This weight takes priority over weigh-ins from Progress. Clear it to use the latest Progress weigh-in.</small></label></div><label className="activity-checkbox"><input type="checkbox" checked={activityInput.creditStepCalories} onChange={e => setActivityInput(v => ({...v, creditStepCalories: e.target.checked}))}/><span><strong>Apply walking calories to net daily calories</strong><small>Turn off if your daily calorie target already includes your usual activity, or if you prefer not to earn calories back.</small></span></label><button type="submit" className="button button-primary"><Check size={17}/> Save activity settings</button></form></section>
           </>}
         </div>
