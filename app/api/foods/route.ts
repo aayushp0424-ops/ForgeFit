@@ -23,7 +23,10 @@ export async function GET(req:NextRequest) {
   if (barcode) {
     try {
       const data = await jsonFrom(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=${fields}`);
-      const food = data.product && fromOpenFoodFacts(data.product as Record<string,unknown>);
+      const rawProduct = data.product;
+      const food = rawProduct && typeof rawProduct === 'object' && !Array.isArray(rawProduct)
+        ? fromOpenFoodFacts(rawProduct as Record<string,unknown>)
+        : null;
       if (food) list.push(food);
       else notices.push('No complete nutrition label found for this barcode in Open Food Facts.');
     } catch {notices.push('Open Food Facts barcode lookup is temporarily unavailable.');}
