@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import "./design-tokens.css";
 import "./globals.css";
+import "./ui-foundations.css";
 
 export const metadata: Metadata = {
   title: "ForgeFit | Fuel your progress",

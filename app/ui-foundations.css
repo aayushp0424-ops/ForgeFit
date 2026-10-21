@@ -1,0 +1,47 @@
+/* Shared component presentation — Phase 1. Existing screens retain their structure. */
+.ff-surface-card { border-radius: var(--ff-radius-card); }
+.ff-progress {
+  display:block; width:100%; height:7px; overflow:hidden; border-radius:var(--ff-radius-pill);
+  background:#31444C;
+}
+.ff-progress > span {
+  display:block; height:100%; border-radius:var(--ff-radius-pill);
+  transition:width var(--ff-motion-progress) var(--ff-ease);
+}
+.ff-field-hint { color:var(--muted);font-size:var(--ff-font-secondary);line-height:1.45; }
+.ff-text-field > span { color:var(--text); }
+.ff-text-field input { min-height:var(--ff-hit-target); border-radius:var(--ff-radius-control); }
+.ff-sheet-backdrop {
+  position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-end;justify-content:center;
+  background:rgba(3,9,13,.72);animation:ff-backdrop-in var(--ff-motion-sheet) ease-out;
+}
+.ff-sheet {
+  outline:none;background:var(--panel);color:var(--text);width:min(100%,540px);
+  max-height:min(88dvh,800px);overflow-y:auto;overscroll-behavior:contain;
+  border:1px solid var(--line);border-bottom:0;
+  border-radius:22px 22px 0 0;
+  padding:var(--ff-space-4) var(--ff-space-5) max(var(--ff-space-6),env(safe-area-inset-bottom));
+  box-shadow:0 -16px 50px rgba(0,0,0,.3);
+  animation:ff-sheet-in var(--ff-motion-sheet) var(--ff-ease);
+}
+.ff-sheet-handle {width:44px;height:5px;border-radius:var(--ff-radius-pill);background:#657C85;margin:0 auto 18px}
+.ff-sheet-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:var(--ff-space-5)}
+.ff-sheet-heading h2{font-size:var(--ff-font-heading);font-weight:600}
+.ff-sheet-close{display:grid;place-items:center;width:var(--ff-hit-target);height:var(--ff-hit-target);border:1px solid var(--line);border-radius:var(--ff-radius-control);background:var(--panel-hover);color:var(--text)}
+@keyframes ff-sheet-in {from{opacity:.85;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ff-backdrop-in {from{opacity:0}to{opacity:1}}
+/* Controls need an observable focus state, including textareas and custom interactive elements. */
+:where(button,input,select,textarea,a,[role="button"]):focus-visible {
+  outline:2px solid var(--ff-color-focus);
+  outline-offset:3px;
+}
+:where(input,select,textarea){accent-color:var(--ff-color-teal)}
+@media(min-width:761px){
+  .ff-sheet-backdrop{align-items:center;padding:var(--ff-space-6)}
+  .ff-sheet{border-bottom:1px solid var(--line);border-radius:var(--ff-radius-card);max-height:min(85dvh,760px)}
+  .ff-sheet-handle{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .ff-sheet,.ff-sheet-backdrop{animation:none}
+  .ff-progress>span{transition:none}
+}

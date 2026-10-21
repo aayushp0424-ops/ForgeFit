@@ -1,0 +1,45 @@
+:root {
+  /* ForgeFit v1 foundation — locked brand palette */
+  --ff-color-bg: #0B151B;
+  --ff-color-sidebar: #0C171D;
+  --ff-color-surface: #14232C;
+  --ff-color-surface-hover: #1A3039;
+  --ff-color-border: #2A3A44;
+  --ff-color-border-soft: #21323C;
+  --ff-color-text: #F1F7F6;
+  --ff-color-muted: #91A8AF;
+  --ff-color-faint: #69818B;
+  --ff-color-teal: #29D3B2;
+  --ff-color-orange: #FF742B;
+  --ff-color-lavender: #A29BFF;
+  --ff-color-focus: #A9E8DA;
+  --ff-color-active: #23453F;
+
+  --ff-font: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --ff-font-hero: 38px;
+  --ff-font-heading: 22px;
+  --ff-font-macro: 22px;
+  --ff-font-body: 16px;
+  --ff-font-secondary: 14px;
+  --ff-font-nav: 12px;
+
+  --ff-space-1: 4px;
+  --ff-space-2: 8px;
+  --ff-space-3: 12px;
+  --ff-space-4: 16px;
+  --ff-space-5: 20px;
+  --ff-space-6: 24px;
+
+  --ff-radius-control: 12px;
+  --ff-radius-small-card: 14px;
+  --ff-radius-card: 18px;
+  --ff-radius-pill: 999px;
+  --ff-shadow-card: 0 9px 22px #03090D17;
+
+  --ff-motion-press: 140ms;
+  --ff-motion-page: 200ms;
+  --ff-motion-sheet: 250ms;
+  --ff-motion-progress: 300ms;
+  --ff-ease: cubic-bezier(.2,.8,.2,1);
+  --ff-hit-target: 44px;
+}

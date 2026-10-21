@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import BarcodeScanner from "./components/BarcodeScanner";
+import { Brand, Pill, Ring, MetricBar, Empty, SectionHeader, ActionButton, n } from "./components/ui";
 import { isHealthBridgeAvailable, requestAppleHealthAccess, fetchAppleHealthSteps } from "../lib/healthBridge";
 import { STARTER_FOODS, NUTRIENTS, nutrientKeys, foodUnits, amountsFor, scaledNutrients, sumNutrients, type Nutrients, type CatalogFood } from "../lib/foods";
 
@@ -42,7 +43,6 @@ const NAV: { id: Screen; label: string; icon: LucideIcon }[] = [
 const LABELS: Record<Screen, string> = {
   home: "Overview", food: "Food diary", train: "Workout tracker", activity: "Daily activity", coach: "Meal coach", progress: "Your progress", settings: "Settings",
 };
-const n = (x: number, digits = 0) => x.toLocaleString("en-US", { maximumFractionDigits: digits });
 const finite = (x: number, fallback = 0) => Number.isFinite(x) ? Math.max(0, x) : fallback;
 const waterMl = (ounces: number) => Math.round(ounces * 29.5735);
 // Estimate extra calories ABOVE resting metabolism from walking, assuming moderate pace.
@@ -82,31 +82,6 @@ function loadStore(): Store {
       healthSync: { enabled: obj.healthSync?.enabled === true, lastSync: typeof obj.healthSync?.lastSync === "string" ? obj.healthSync.lastSync : undefined },
     };
   } catch { return INITIAL_STORE; }
-}
-
-function Brand() {
-  return <div className="brand"><span className="brand-mark"><Dumbbell size={23} strokeWidth={2.8} /></span><span><strong>FORGE<span className="brand-teal">FIT</span></strong><small>FUEL YOUR PROGRESS</small></span></div>;
-}
-function Pill({ children, kind = "muted" }: { children: React.ReactNode; kind?: "muted" | "teal" | "orange" }) {
-  return <span className={`pill pill-${kind}`}>{children}</span>;
-}
-function Ring({ value, total, title, subtitle, size = "large" }: { value: number; total: number; title: string; subtitle: string; size?: "large" | "small" }) {
-  const pct = total > 0 ? Math.min(100, (value / total) * 100) : 0;
-  return <div className={`ring ring-${size}`} style={{ background: `conic-gradient(var(--teal) ${pct}%, var(--line) ${pct}%)` }}>
-    <div className="ring-inner"><strong>{title}</strong><span>{subtitle}</span></div>
-  </div>;
-}
-function MetricBar({ label, current, goal, color }: { label: string; current: number; goal: number; color: string }) {
-  return <div className="metric-bar">
-    <div className="metric-top"><span>{label}</span><strong>{n(current)} <em>/ {n(goal)}g</em></strong></div>
-    <div className="track"><span style={{ width: `${Math.min(100, goal ? current / goal * 100 : 0)}%`, background: color }} /></div>
-  </div>;
-}
-function Empty({ icon: Icon, heading, text }: { icon: LucideIcon; heading: string; text: string }) {
-  return <div className="empty"><span className="empty-icon"><Icon size={25} /></span><strong>{heading}</strong><p>{text}</p></div>;
-}
-function SectionHeader({ title, description, action }: { title: string; description?: string; action?: React.ReactNode }) {
-  return <div className="section-head"><div><h2>{title}</h2>{description && <p>{description}</p>}</div>{action}</div>;
 }
 
 export default function ForgeFit() {
@@ -629,7 +604,7 @@ export default function ForgeFit() {
             <section className="two-col-layout"><div className="panel">
               <SectionHeader title="What should I make?" description="Uses your food diary totals and goals; no personal information is needed to get ideas."/>
               <div className="coach-context"><div><span>Calories left</span><strong>{n(Math.max(0,remaining))}</strong></div><div><span>Protein left</span><strong>{n(Math.max(0,data.goals.protein-totals.protein))} g</strong></div><div><span>Meals logged</span><strong>{todayFoods.length}</strong></div></div>
-              <form onSubmit={askCoach} className="coach-form"><div className="settings-fields"><label className="field"><span>Meal</span><select value={coachMeal} onChange={e=>setCoachMeal(e.target.value as Meal)}>{MEALS.map(m=><option key={m}>{m}</option>)}</select></label><label className="field"><span>Dietary preference</span><select value={coachDiet} onChange={e=>setCoachDiet(e.target.value)}>{['None','Vegetarian','Vegan','Dairy-free'].map(v=><option key={v}>{v}</option>)}</select></label></div><label className="field"><span>Ingredients on hand (comma-separated; only these will be used)</span><input value={coachIngredients} maxLength={300} onChange={e=>setCoachIngredients(e.target.value)} placeholder="Chicken, rice, broccoli…"/></label><label className="field"><span>Exclude / avoid these foods (comma-separated)</span><input value={coachAvoid} maxLength={200} onChange={e=>setCoachAvoid(e.target.value)} placeholder="Peanuts, dairy, mushrooms…"/><small className="tiny-muted">Recipe filters are not an allergy-safety guarantee; always check ingredients.</small></label><label className="field"><span>Ask your coach</span><textarea required rows={4} maxLength={500} value={coachQuestion} onChange={e=>setCoachQuestion(e.target.value)} placeholder="What can I make for dinner that's high protein?"/></label><button type="submit" disabled={coachLoading} className="button button-primary full"><Sparkles size={18}/>{coachLoading?'Building ideas…':'Get meal ideas'}</button></form>
+              <form onSubmit={askCoach} className="coach-form"><div className="settings-fields"><label className="field"><span>Meal</span><select value={coachMeal} onChange={e=>setCoachMeal(e.target.value as Meal)}>{MEALS.map(m=><option key={m}>{m}</option>)}</select></label><label className="field"><span>Dietary preference</span><select value={coachDiet} onChange={e=>setCoachDiet(e.target.value)}>{['None','Vegetarian','Vegan','Dairy-free'].map(v=><option key={v}>{v}</option>)}</select></label></div><label className="field"><span>Ingredients on hand (comma-separated; only these will be used)</span><input value={coachIngredients} maxLength={300} onChange={e=>setCoachIngredients(e.target.value)} placeholder="Chicken, rice, broccoli…"/></label><label className="field"><span>Exclude / avoid these foods (comma-separated)</span><input value={coachAvoid} maxLength={200} onChange={e=>setCoachAvoid(e.target.value)} placeholder="Peanuts, dairy, mushrooms…"/><small className="tiny-muted">Recipe filters are not an allergy-safety guarantee; always check ingredients.</small></label><label className="field"><span>Ask your coach</span><textarea required rows={4} maxLength={500} value={coachQuestion} onChange={e=>setCoachQuestion(e.target.value)} placeholder="What can I make for dinner that's high protein?"/></label><ActionButton type="submit" disabled={coachLoading} variant="primary" fullWidth><Sparkles size={18}/>{coachLoading?'Building ideas…':'Get meal ideas'}</ActionButton></form>
             </div><div className="panel coach-answer"><SectionHeader title="Your meal ideas" description="Suggestions update when you submit a new question." action={coachMode?<Pill kind={coachMode==='ai'?'teal':'orange'}>{coachMode==='ai'?'AI-powered':'Built-in smart coach'}</Pill>:undefined}/>
               {coachAnswer ? <div className="coach-response">{coachAnswer.split(/\n/).map((line,i)=><p key={i}>{line.split(/(\*\*[^*]+\*\*)/g).map((part,j)=>part.startsWith('**')&&part.endsWith('**')?<strong key={j}>{part.slice(2,-2)}</strong>:<span key={j}>{part}</span>)}</p>)}</div> : <Empty icon={Sparkles} heading="A meal idea for your goals" text="Tell ForgeFit what you're craving, what ingredients you have, and any dietary preferences."/>}
               {coachNotice && <div className="notice"><Info size={17}/>{coachNotice}</div>}
@@ -648,8 +623,8 @@ export default function ForgeFit() {
 
           {screen === "settings" && <>
             <section className="page-heading"><div><div className="eyebrow">MAKE IT YOURS</div><h1>Your <span>settings.</span></h1><p>Personalize nutrition and daily activity goals.</p></div><Pill kind="teal"><ShieldCheck size={13}/> Local mode</Pill></section>
-            <div className="two-col-layout"><section className="panel"><SectionHeader title="Daily nutrition goals" description="These targets are placeholders until you choose your own."/><form onSubmit={saveGoals}><div className="settings-fields">{(["calories", "protein", "carbs", "fat"] as const).map(key => <label className="field" key={key}><span>{key.charAt(0).toUpperCase() + key.slice(1)} ({key === "calories" ? "kcal" : "g"})</span><input required type="number" min="1" max="100000" step="1" value={goalsInput[key]} onChange={e => setGoalsInput(g => ({ ...g, [key]: Number(e.target.value) }))}/></label>)}</div><button type="submit" className="button button-primary"><Check size={17}/> Save goals</button></form></section>
-            <section className="panel"><SectionHeader title="Your data" description="Important information about this starter app."/><div className="settings-note"><ShieldCheck size={20}/><div><strong>Saved on this browser only</strong><p>Entries are stored in localStorage. There is no login, cloud backup, or cross-device sync in v0.4. Clearing this browser's data will remove your entries.</p></div></div><div className="settings-note"><CircleHelp size={20}/><div><strong>Health sync status</strong><p>Manual and CSV step entry work in the browser. The Apple Health connection panel is under Activity; direct step sync requires the native iPhone wrapper and your permission. Android Health Connect needs its own native integration.</p></div></div><button className="button button-danger" onClick={clearData}><Trash2 size={16}/> Delete all local data</button></section></div>
+            <div className="two-col-layout"><section className="panel"><SectionHeader title="Daily nutrition goals" description="These targets are placeholders until you choose your own."/><form onSubmit={saveGoals}><div className="settings-fields">{(["calories", "protein", "carbs", "fat"] as const).map(key => <label className="field" key={key}><span>{key.charAt(0).toUpperCase() + key.slice(1)} ({key === "calories" ? "kcal" : "g"})</span><input required type="number" min="1" max="100000" step="1" value={goalsInput[key]} onChange={e => setGoalsInput(g => ({ ...g, [key]: Number(e.target.value) }))}/></label>)}</div><ActionButton type="submit" variant="primary"><Check size={17}/> Save goals</ActionButton></form></section>
+            <section className="panel"><SectionHeader title="Your data" description="Important information about this starter app."/><div className="settings-note"><ShieldCheck size={20}/><div><strong>Saved on this browser only</strong><p>Entries are stored in localStorage. There is no login, cloud backup, or cross-device sync in v0.4. Clearing this browser's data will remove your entries.</p></div></div><div className="settings-note"><CircleHelp size={20}/><div><strong>Health sync status</strong><p>Manual and CSV step entry work in the browser. The Apple Health connection panel is under Activity; direct step sync requires the native iPhone wrapper and your permission. Android Health Connect needs its own native integration.</p></div></div><ActionButton variant="danger" onClick={clearData}><Trash2 size={16}/> Delete all local data</ActionButton></section></div>
             <section className="panel settings-activity-panel"><SectionHeader title="Water, steps & calorie credits" description="Choose daily goals and the weight used for walking estimates."/><form onSubmit={saveActivityPrefs}><div className="settings-fields"><label className="field"><span>Water goal (fl oz per day)</span><input required type="number" min="1" max="300" step="0.1" value={activityInput.waterOz} onChange={e => setActivityInput(v => ({...v, waterOz: Number(e.target.value)}))}/></label><label className="field"><span>Step goal (steps per day)</span><input required type="number" min="1" max="100000" step="1" value={activityInput.stepGoal} onChange={e => setActivityInput(v => ({...v, stepGoal: Number(e.target.value)}))}/></label><label className="field"><span>Walking estimate weight (lb, optional)</span><input type="number" min="0" max="1500" step="0.1" value={activityInput.bodyWeightLb || ""} placeholder="Enter your body weight" onChange={e => setActivityInput(v => ({...v, bodyWeightLb: Number(e.target.value)}))}/><small className="tiny-muted">This weight takes priority over weigh-ins from Progress. Clear it to use the latest Progress weigh-in.</small></label></div><label className="activity-checkbox"><input type="checkbox" checked={activityInput.creditStepCalories} onChange={e => setActivityInput(v => ({...v, creditStepCalories: e.target.checked}))}/><span><strong>Apply walking calories to net daily calories</strong><small>Turn off if your daily calorie target already includes your usual activity, or if you prefer not to earn calories back.</small></span></label><button type="submit" className="button button-primary"><Check size={17}/> Save activity settings</button></form></section>
           </>}
         </div>
